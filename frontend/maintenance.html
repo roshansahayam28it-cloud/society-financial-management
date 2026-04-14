@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Maintenance — Society Finance</title>
+  <meta name="description" content="Manage monthly maintenance bills for society members" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .filter-bar select {
+      padding: 9px 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-btn);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      outline: none;
+      transition: var(--transition);
+      min-width: 140px;
+    }
+    .filter-bar select:focus { border-color: var(--accent-primary); }
+    .filter-bar select option { background: #151b2e; }
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .summary-chip {
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      background: var(--bg-card);
+    }
+    .summary-chip .label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+    .summary-chip .value { font-size: 1.25rem; font-weight: 800; }
+    @media (max-width: 580px) { .summary-strip { grid-template-columns: 1fr; } }
+    .action-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 4px 6px;
+      border-radius: 6px;
+      transition: var(--transition);
+    }
+    .action-btn:hover { background: rgba(255,255,255,0.08); }
+  </style>
+</head>
+<body>
+  <button class="menu-toggle" id="menuToggle" aria-label="Open menu">☰</button>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">🏘️</div>
+        <div><h1>SocietyFin</h1><p>Management System</p></div>
+      </div>
+      <div class="nav-section">
+        <p class="nav-section-label">Navigation</p>
+        <a href="dashboard.html"    class="nav-link"><span class="nav-icon">📊</span> Dashboard</a>
+        <a href="transactions.html" class="nav-link"><span class="nav-icon">💸</span> Transactions</a>
+        <a href="maintenance.html"  class="nav-link active"><span class="nav-icon">🧾</span> Maintenance</a>
+      </div>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">?</div>
+          <div>
+            <p class="user-name" id="userName">Loading...</p>
+            <p class="user-role" id="userRole">—</p>
+          </div>
+        </div>
+        <button onclick="logout()" class="btn btn-ghost btn-sm btn-full" style="margin-top:10px;">🚪 Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+      <div class="page-header flex justify-between items-center">
+        <div>
+          <h2>Maintenance <span class="text-gradient">Bills</span></h2>
+          <p>Track and manage monthly maintenance payments</p>
+        </div>
+        <button id="openGenBill" class="btn btn-primary" style="display:none;">+ Generate Bill</button>
+      </div>
+
+      <!-- Summary -->
+      <div class="summary-strip">
+        <div class="summary-chip">
+          <div class="label">Total Bills</div>
+          <div class="value" id="sumTotal" style="color:var(--text-primary);">0</div>
+        </div>
+        <div class="summary-chip">
+          <div class="label">Pending / Overdue</div>
+          <div class="value" id="sumPending" style="color:var(--accent-warning);">0</div>
+        </div>
+        <div class="summary-chip">
+          <div class="label">Collected Amount</div>
+          <div class="value" id="sumCollected" style="color:var(--accent-secondary);">₹0</div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-bar">
+        <select id="filterStatus">
+          <option value="">All Status</option>
+          <option value="Pending">Pending</option>
+          <option value="Paid">Paid</option>
+          <option value="Overdue">Overdue</option>
+        </select>
+      </div>
+
+      <!-- Table -->
+      <div class="card content-card">
+        <div id="maintAlert" class="alert"></div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Month / Year</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Paid On</th>
+                <th id="actionHead"></th>
+              </tr>
+            </thead>
+            <tbody id="maintBody">
+              <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">⏳</div><p>Loading bills...</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Generate Bill Modal (Admin only) -->
+  <div class="modal-overlay" id="genBillModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>🧾 Generate Maintenance Bill</h3>
+        <button class="modal-close" id="closeGenBill">✕</button>
+      </div>
+      <div id="genBillAlert" class="alert"></div>
+      <form id="genBillForm" novalidate>
+        <div class="form-group">
+          <label>Member User ID</label>
+          <input type="text" id="billUserId" class="form-control" placeholder="Paste the member's User ID" required />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group">
+            <label>Month</label>
+            <select id="billMonth" class="form-control">
+              <option>January</option><option>February</option><option>March</option>
+              <option>April</option><option>May</option><option>June</option>
+              <option>July</option><option>August</option><option>September</option>
+              <option>October</option><option>November</option><option>December</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Year</label>
+            <input type="number" id="billYear" class="form-control" value="2026" min="2020" max="2099" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Amount (₹)</label>
+          <input type="number" id="billAmount" class="form-control" placeholder="e.g. 1500" min="1" required />
+        </div>
+        <button type="submit" id="genBillBtn" class="btn btn-primary btn-full">
+          <div class="spinner" id="genBillSpinner"></div> Generate Bill
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    const user = requireAuth();
+    const isAdmin = user && user.role === 'Admin';
+
+    if (user) {
+      document.getElementById('userName').textContent   = user.name;
+      document.getElementById('userRole').textContent   = user.role;
+      document.getElementById('userAvatar').textContent = user.name.charAt(0).toUpperCase();
+      if (isAdmin) {
+        document.getElementById('openGenBill').style.display = 'inline-flex';
+        document.getElementById('actionHead').textContent    = 'Action';
+      }
+    }
+
+    document.getElementById('menuToggle').addEventListener('click', () =>
+      document.getElementById('sidebar').classList.toggle('open'));
+
+    let allBills = [];
+
+    async function loadBills() {
+      try {
+        allBills = isAdmin ? await api.getAllMaintenance() : await api.getMyMaintenance();
+        renderBills(allBills);
+        updateSummary(allBills);
+      } catch (e) {
+        document.getElementById('maintBody').innerHTML =
+          `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p></div></td></tr>`;
+      }
+    }
+
+    function updateSummary(bills) {
+      const pending   = bills.filter(b => b.status !== 'Paid').length;
+      const collected = bills.filter(b => b.status === 'Paid').reduce((s, b) => s + b.amount, 0);
+      document.getElementById('sumTotal').textContent     = bills.length;
+      document.getElementById('sumPending').textContent   = pending;
+      document.getElementById('sumCollected').textContent = formatCurrency(collected);
+    }
+
+    function renderBills(bills) {
+      const body = document.getElementById('maintBody');
+      if (bills.length === 0) {
+        body.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🧾</div><p>No maintenance bills found</p></div></td></tr>`;
+        return;
+      }
+      body.innerHTML = bills.map(b => {
+        const memberName = isAdmin && b.user ? b.user.name : (user ? user.name : '—');
+        const actionCell = isAdmin && b.status !== 'Paid'
+          ? `<td>
+               <button class="action-btn" title="Mark Paid" onclick="markPaid('${b._id}')">✅ Mark Paid</button>
+               <button class="action-btn" title="Mark Overdue" onclick="markOverdue('${b._id}')">🔴 Overdue</button>
+             </td>`
+          : `<td>—</td>`;
+        return `
+          <tr>
+            <td>${memberName}</td>
+            <td>${b.month} ${b.year}</td>
+            <td style="font-weight:600;">${formatCurrency(b.amount)}</td>
+            <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
+            <td>${b.paidAt ? formatDate(b.paidAt) : '—'}</td>
+            ${isAdmin ? actionCell : '<td></td>'}
+          </tr>`;
+      }).join('');
+    }
+
+    // Filters
+    document.getElementById('filterStatus').addEventListener('change', () => {
+      const s = document.getElementById('filterStatus').value;
+      const filtered = allBills.filter(b => !s || b.status === s);
+      renderBills(filtered);
+      updateSummary(filtered);
+    });
+
+    // Mark Paid
+    async function markPaid(id) {
+      try {
+        await api.updateBillStatus(id, 'Paid');
+        showAlert('maintAlert', 'Bill marked as Paid!', 'success');
+        await loadBills();
+      } catch (e) { showAlert('maintAlert', e.message); }
+    }
+    async function markOverdue(id) {
+      try {
+        await api.updateBillStatus(id, 'Overdue');
+        showAlert('maintAlert', 'Bill marked as Overdue.', 'success');
+        await loadBills();
+      } catch (e) { showAlert('maintAlert', e.message); }
+    }
+
+    // Modal
+    document.getElementById('openGenBill')?.addEventListener('click', () =>
+      document.getElementById('genBillModal').classList.add('active'));
+    document.getElementById('closeGenBill').addEventListener('click', () =>
+      document.getElementById('genBillModal').classList.remove('active'));
+    document.getElementById('genBillModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('genBillModal'))
+        document.getElementById('genBillModal').classList.remove('active');
+    });
+
+    // Set current month/year by default
+    const now = new Date();
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('billMonth').value = months[now.getMonth()];
+    document.getElementById('billYear').value  = now.getFullYear();
+
+    document.getElementById('genBillForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userId = document.getElementById('billUserId').value.trim();
+      const month  = document.getElementById('billMonth').value;
+      const year   = Number(document.getElementById('billYear').value);
+      const amount = Number(document.getElementById('billAmount').value);
+      if (!userId || !month || !year || !amount) return showAlert('genBillAlert', 'Fill in all fields.');
+      if (amount <= 0) return showAlert('genBillAlert', 'Amount must be greater than 0.');
+
+      setLoading('genBillBtn', 'genBillSpinner', true);
+      try {
+        await api.generateBill({ user: userId, month, year, amount });
+        document.getElementById('genBillModal').classList.remove('active');
+        document.getElementById('genBillForm').reset();
+        showAlert('maintAlert', 'Maintenance bill generated successfully!', 'success');
+        await loadBills();
+      } catch (err) {
+        showAlert('genBillAlert', err.message);
+      } finally {
+        setLoading('genBillBtn', 'genBillSpinner', false);
+      }
+    });
+
+    loadBills();
+  </script>
+</body>
+</html>

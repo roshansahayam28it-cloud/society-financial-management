@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register — Society Finance</title>
+  <meta name="description" content="Create an account on the Society Financial Management System" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .auth-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      z-index: 1;
+    }
+    .auth-box {
+      background: rgba(10,15,30,0.95);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 48px 44px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    }
+    .auth-logo {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 28px;
+    }
+    .auth-logo .icon {
+      width: 46px; height: 46px;
+      background: var(--gradient-main);
+      border-radius: 13px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+    }
+    .auth-logo h1 { font-size: 1.1rem; font-weight: 800; }
+    .auth-logo p  { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .auth-title   { font-size: 1.4rem; font-weight: 800; margin-bottom: 6px; }
+    .auth-sub     { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 28px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .auth-footer  { text-align: center; margin-top: 20px; font-size: 0.85rem; color: var(--text-muted); }
+    .auth-footer a { color: var(--accent-primary); text-decoration: none; font-weight: 600; }
+    .auth-footer a:hover { text-decoration: underline; }
+    @media (max-width: 480px) {
+      .auth-box { padding: 32px 24px; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-box">
+      <div class="auth-logo">
+        <div class="icon">🏘️</div>
+        <div>
+          <h1>Society Finance</h1>
+          <p>Management System</p>
+        </div>
+      </div>
+
+      <h2 class="auth-title">Create Account</h2>
+      <p class="auth-sub">Fill in your details to get started</p>
+
+      <div id="regAlert" class="alert"></div>
+
+      <form id="registerForm" novalidate>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="regName">Full Name</label>
+            <input type="text" id="regName" class="form-control" placeholder="John Doe" required />
+          </div>
+          <div class="form-group">
+            <label for="regRole">Role</label>
+            <select id="regRole" class="form-control">
+              <option value="Member">Member</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="regEmail">Email Address</label>
+          <input type="email" id="regEmail" class="form-control" placeholder="you@example.com" required />
+        </div>
+        <div class="form-group">
+          <label for="regPassword">Password</label>
+          <input type="password" id="regPassword" class="form-control" placeholder="Min. 6 characters" required />
+        </div>
+        <button type="submit" id="regBtn" class="btn btn-primary btn-full">
+          <div class="spinner" id="regSpinner"></div>
+          Create Account
+        </button>
+      </form>
+
+      <p class="auth-footer">
+        Already have an account? <a href="index.html">Sign in</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    redirectIfLoggedIn();
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name     = document.getElementById('regName').value.trim();
+      const email    = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const role     = document.getElementById('regRole').value;
+
+      if (!name || !email || !password) return showAlert('regAlert', 'Please fill in all fields.');
+      if (password.length < 6) return showAlert('regAlert', 'Password must be at least 6 characters.');
+
+      setLoading('regBtn', 'regSpinner', true);
+      try {
+        const data = await api.register(name, email, password, role);
+        saveSession({ name: data.name, email: data.email, role: data.role, _id: data._id }, data.token);
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        showAlert('regAlert', err.message);
+      } finally {
+        setLoading('regBtn', 'regSpinner', false);
+      }
+    });
+  </script>
+</body>
+</html>

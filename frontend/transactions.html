@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Transactions — Society Finance</title>
+  <meta name="description" content="Manage income and expenses for the society" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .filter-bar select,
+    .filter-bar input {
+      padding: 9px 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-btn);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      outline: none;
+      transition: var(--transition);
+      min-width: 140px;
+    }
+    .filter-bar select:focus,
+    .filter-bar input:focus {
+      border-color: var(--accent-primary);
+    }
+    .filter-bar select option { background: #151b2e; }
+    .amount-positive { color: var(--accent-secondary); font-weight: 600; }
+    .amount-negative { color: var(--accent-danger);    font-weight: 600; }
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .summary-chip {
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      background: var(--bg-card);
+    }
+    .summary-chip .label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+    .summary-chip .value { font-size: 1.25rem; font-weight: 800; }
+    @media (max-width: 580px) {
+      .summary-strip { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <button class="menu-toggle" id="menuToggle" aria-label="Open menu">☰</button>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">🏘️</div>
+        <div><h1>SocietyFin</h1><p>Management System</p></div>
+      </div>
+      <div class="nav-section">
+        <p class="nav-section-label">Navigation</p>
+        <a href="dashboard.html"    class="nav-link"><span class="nav-icon">📊</span> Dashboard</a>
+        <a href="transactions.html" class="nav-link active"><span class="nav-icon">💸</span> Transactions</a>
+        <a href="maintenance.html"  class="nav-link"><span class="nav-icon">🧾</span> Maintenance</a>
+      </div>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">?</div>
+          <div>
+            <p class="user-name" id="userName">Loading...</p>
+            <p class="user-role" id="userRole">—</p>
+          </div>
+        </div>
+        <button onclick="logout()" class="btn btn-ghost btn-sm btn-full" style="margin-top:10px;">🚪 Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+      <div class="page-header flex justify-between items-center">
+        <div>
+          <h2>Transactions</h2>
+          <p>Track all income and expenses for the society</p>
+        </div>
+        <button id="openAddTx" class="btn btn-primary" style="display:none;">+ Add Transaction</button>
+      </div>
+
+      <!-- Summary Strip -->
+      <div class="summary-strip">
+        <div class="summary-chip">
+          <div class="label">Total Income</div>
+          <div class="value" id="sumIncome" style="color:var(--accent-secondary);">₹0</div>
+        </div>
+        <div class="summary-chip">
+          <div class="label">Total Expenses</div>
+          <div class="value" id="sumExpense" style="color:var(--accent-danger);">₹0</div>
+        </div>
+        <div class="summary-chip">
+          <div class="label">Net Balance</div>
+          <div class="value" id="sumBalance" style="color:var(--accent-primary);">₹0</div>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <select id="filterType">
+          <option value="">All Types</option>
+          <option value="Income">Income</option>
+          <option value="Expense">Expense</option>
+        </select>
+        <select id="filterCategory">
+          <option value="">All Categories</option>
+          <option>Maintenance</option>
+          <option>Electricity</option>
+          <option>Water</option>
+          <option>Repairs</option>
+          <option>Salary</option>
+          <option>Events</option>
+          <option>Other</option>
+        </select>
+        <input type="text" id="filterSearch" placeholder="🔍  Search description..." />
+      </div>
+
+      <!-- Table -->
+      <div class="card content-card">
+        <div id="txAlert" class="alert"></div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Added By</th>
+              </tr>
+            </thead>
+            <tbody id="txBody">
+              <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">⏳</div><p>Loading transactions...</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Add Transaction Modal -->
+  <div class="modal-overlay" id="addTxModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>➕ Add Transaction</h3>
+        <button class="modal-close" id="closeTxModal">✕</button>
+      </div>
+      <div id="addTxAlert" class="alert"></div>
+      <form id="addTxForm" novalidate>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group">
+            <label>Type</label>
+            <select id="txType" class="form-control">
+              <option value="Income">Income</option>
+              <option value="Expense">Expense</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="txCategory" class="form-control">
+              <option>Maintenance</option>
+              <option>Electricity</option>
+              <option>Water</option>
+              <option>Repairs</option>
+              <option>Salary</option>
+              <option>Events</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="txDesc" class="form-control" placeholder="e.g. Monthly maintenance collection" required />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group">
+            <label>Amount (₹)</label>
+            <input type="number" id="txAmount" class="form-control" placeholder="0.00" min="1" required />
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="txDate" class="form-control" required />
+          </div>
+        </div>
+        <button type="submit" id="addTxBtn" class="btn btn-primary btn-full">
+          <div class="spinner" id="addTxSpinner"></div> Save Transaction
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    const user = requireAuth();
+    if (user) {
+      document.getElementById('userName').textContent  = user.name;
+      document.getElementById('userRole').textContent  = user.role;
+      document.getElementById('userAvatar').textContent = user.name.charAt(0).toUpperCase();
+      if (user.role === 'Admin') document.getElementById('openAddTx').style.display = 'inline-flex';
+    }
+
+    document.getElementById('menuToggle').addEventListener('click', () =>
+      document.getElementById('sidebar').classList.toggle('open'));
+
+    // Set today as default date
+    document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
+
+    let allTransactions = [];
+
+    async function loadTransactions() {
+      try {
+        allTransactions = await api.getTransactions();
+        renderTable(allTransactions);
+        updateSummary(allTransactions);
+      } catch (e) {
+        document.getElementById('txBody').innerHTML =
+          `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">⚠️</div><p>${e.message}</p></div></td></tr>`;
+      }
+    }
+
+    function updateSummary(txns) {
+      let income = 0, expense = 0;
+      txns.forEach(t => { if (t.type === 'Income') income += t.amount; else expense += t.amount; });
+      document.getElementById('sumIncome').textContent  = formatCurrency(income);
+      document.getElementById('sumExpense').textContent = formatCurrency(expense);
+      const bal = income - expense;
+      const balEl = document.getElementById('sumBalance');
+      balEl.textContent = formatCurrency(bal);
+      balEl.style.color = bal >= 0 ? 'var(--accent-secondary)' : 'var(--accent-danger)';
+    }
+
+    function renderTable(txns) {
+      const body = document.getElementById('txBody');
+      if (txns.length === 0) {
+        body.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">💸</div><p>No transactions found</p></div></td></tr>`;
+        return;
+      }
+      body.innerHTML = txns.map(t => `
+        <tr>
+          <td>${t.description}</td>
+          <td><span class="text-secondary">${t.category}</span></td>
+          <td><span class="badge badge-${t.type.toLowerCase()}">${t.type}</span></td>
+          <td class="${t.type === 'Income' ? 'amount-positive' : 'amount-negative'}">${formatCurrency(t.amount)}</td>
+          <td>${formatDate(t.date)}</td>
+          <td>${t.user ? t.user.name : '—'}</td>
+        </tr>`).join('');
+    }
+
+    // Filters
+    function applyFilters() {
+      const type   = document.getElementById('filterType').value;
+      const cat    = document.getElementById('filterCategory').value;
+      const search = document.getElementById('filterSearch').value.toLowerCase();
+      const filtered = allTransactions.filter(t =>
+        (!type   || t.type === type) &&
+        (!cat    || t.category === cat) &&
+        (!search || t.description.toLowerCase().includes(search))
+      );
+      renderTable(filtered);
+      updateSummary(filtered);
+    }
+    document.getElementById('filterType').addEventListener('change', applyFilters);
+    document.getElementById('filterCategory').addEventListener('change', applyFilters);
+    document.getElementById('filterSearch').addEventListener('input', applyFilters);
+
+    // Modal
+    document.getElementById('openAddTx').addEventListener('click', () =>
+      document.getElementById('addTxModal').classList.add('active'));
+    document.getElementById('closeTxModal').addEventListener('click', () =>
+      document.getElementById('addTxModal').classList.remove('active'));
+    document.getElementById('addTxModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('addTxModal'))
+        document.getElementById('addTxModal').classList.remove('active');
+    });
+
+    // Submit
+    document.getElementById('addTxForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const desc   = document.getElementById('txDesc').value.trim();
+      const amount = document.getElementById('txAmount').value;
+      const date   = document.getElementById('txDate').value;
+      if (!desc || !amount || !date) return showAlert('addTxAlert', 'Fill in all fields.');
+      if (amount <= 0) return showAlert('addTxAlert', 'Amount must be greater than 0.');
+
+      setLoading('addTxBtn', 'addTxSpinner', true);
+      try {
+        await api.addTransaction({
+          type:        document.getElementById('txType').value,
+          category:    document.getElementById('txCategory').value,
+          description: desc,
+          amount:      Number(amount),
+          date
+        });
+        document.getElementById('addTxModal').classList.remove('active');
+        document.getElementById('addTxForm').reset();
+        document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
+        showAlert('txAlert', 'Transaction added successfully!', 'success');
+        await loadTransactions();
+      } catch (err) {
+        showAlert('addTxAlert', err.message);
+      } finally {
+        setLoading('addTxBtn', 'addTxSpinner', false);
+      }
+    });
+
+    loadTransactions();
+  </script>
+</body>
+</html>
